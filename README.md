@@ -17,3 +17,5 @@ If you close the browser window, the server is still running and the app still a
 To shut the server down, use ctrl+C in the terminal
 
 Each time a spectrum is loaded, a static .html file with the plot will be saved in **spectra_app/save/**
+
+To use with GGG2014 spectra, revert to this commit: dfb16ed
