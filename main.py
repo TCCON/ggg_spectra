@@ -166,6 +166,8 @@ def doc_maker():
 	tm=species[1]	# measured transmittance list
 	tc=species[2]	# calculated transmittance list
 	cont = species[3] # continuum
+	tm = tm/cont
+	tc = tc/cont
 	not_gas = 4 # number of column that are not retrieved species
 	residuals = spt_data[spectrum]['resid'] # 100*(calculated - measured)
 	sigma_rms = spt_data[spectrum]['rms_resid'] # sqrt(mean(residuals**2))
@@ -314,6 +316,8 @@ TOOLS = "box_zoom,wheel_zoom,pan,undo,redo,reset,crosshair,save" #tools for boke
 colors = {
 		'co2':'red',
 		'lco2':'red',
+		'zco2':'red',
+		'tco2':'red',
 		'wco2':'red',
 		'2co2':'olive',
 		'3co2':'hotpink',
