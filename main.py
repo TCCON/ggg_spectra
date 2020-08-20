@@ -199,11 +199,13 @@ def doc_maker():
 	# plotting species lines
 	plots = []
 	for j in range(len(species)-not_gas):
-		try:
-			plots.append(fig.line(x=freq,y=species[j+not_gas],color=colors[header[j+not_gas]],line_width=2,name=header[j+not_gas]))
-		except KeyError:
-			print('KeyError:',header[j+not_gas],'is not specified in the "colors" dictionary, you need to add it with an associated color')
-			sys.exit()
+
+		if header[j+not_gas] not in colors.keys():
+			colo = 'hotpink'
+			print('/!\\ header[j+not_gas] not in the "colors" dictionary, using hotpink by default; update the colors dictionary to use a specific color !')
+		else:
+			colo = colors[header[j+not_gas]]
+		plots.append(fig.line(x=freq,y=species[j+not_gas],color=colo,line_width=2,name=header[j+not_gas]))
 		# each line has a associated hovertool with a callback that looks at the checkboxes status for the tool visibility.
 		fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j]],names=[header[j+not_gas]],tooltips=OrderedDict( [('name',header[j+not_gas]),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
 	
