@@ -90,9 +90,8 @@ def load_spectrum():
 	cur_path = curdoc().select_one({"name":"path_input"}).value
 
 	#read the spectrum file
-	#if spectrum not in spt_data.keys():
 	spt_data[spectrum] = read_spt(os.path.join(cur_path,spectrum))
-
+	
 	spt_data['cur_spec'] = spectrum
 
 	doc_maker()
@@ -139,7 +138,7 @@ def doc_maker():
 	global spt_data, custom_path
 
 	curdoc().clear() # removes everything in the current document
-
+	
 	# dropdown to select a spectrum
 	select_spectrum = Select(title="Select a spectrum:",value='',options=['']+sorted(os.listdir(spec_path)),name="select_spectrum",width=200)
 
@@ -170,7 +169,10 @@ def doc_maker():
 	freq=spt_data[spectrum]['columns']['Freq'] # the frequency list
 	tm=spt_data[spectrum]['columns']['Tm']	# measured transmittance list
 	tc=spt_data[spectrum]['columns']['Tc']	# calculated transmittance list
-	not_gas = 4 # number of column that are not retrieved species
+	if 'Cont' in header:
+		not_gas = 4
+	else:
+		not_gas = 3 # number of column that are not retrieved species
 	residuals = spt_data[spectrum]['resid'] # 100*(calculated - measured)
 	sigma_rms = spt_data[spectrum]['rms_resid'] # sqrt(mean(residuals**2))
 
@@ -192,11 +194,11 @@ def doc_maker():
 		
 		elem.xaxis.axis_label_text_font_size = "14pt"
 		elem.xaxis.major_label_text_font_size = "13pt"
-
-	N_plots = list(range(len(species)-2)) # a range list from 0 to the number of plots, used by the checkbox group
+	
+	N_plots = list(range(len(species)-not_gas+2)) # a range list from 0 to the number of plots, used by the checkbox group
 	
 	# group of checkboxes that will be used to toggle line and HoverTool visibility
-	checkbox = CheckboxGroup(labels=header[3:]+['Measured','Calculated'],active=N_plots,width=200)
+	checkbox = CheckboxGroup(labels=header[not_gas:]+['Measured','Calculated'],active=N_plots,width=200)
 	
 	# plotting species lines
 	plots = []
@@ -251,7 +253,10 @@ def doc_maker():
 	check_button.callback = CustomJS(args={key: value for key,value in checkbox_iterable}, code=check_button_code)
 	
 	# extension for the saved file name based on the path to spectra
-	ext = custom_path.split(os.sep)[-2]
+	try:
+		ext = os.path.basename(os.path.split(custom_path)[0])
+	except:
+		ext = ''
 
 	# title div
 	div = Div(text='<p align="center"><font size=4><b>{}</b></font></p>'.format(ext),width=fig.plot_width-100)
