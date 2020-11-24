@@ -39,9 +39,9 @@ import numpy as np
 #############
 
 def read_spt(path):
-	"""
+	'''
 	spt files are the spectrum files output by GFIT/GFIT2
-	"""
+	'''
 
 	DATA = {}
 
@@ -52,7 +52,7 @@ def read_spt(path):
 
 	DATA['header'] = head
 
-	content_T = np.array([[elem for elem in line.split()] for line in content[3:]],dtype=np.float).T # transpose of the file content after the header, so content_T[i] is the ith column
+	content_T = np.array([[elem for elem in line.split()] for line in content[3:]],dtype=np.float).T
 
 	DATA['columns'] = {}
 	for var in head:
@@ -60,8 +60,13 @@ def read_spt(path):
 
 	DATA['sza'] = float(content[1].split()[4])
 	DATA['zobs'] = float(content[1].split()[5])
-
-	resid = 100.0*(DATA['columns']['Tm']-DATA['columns']['Tc']) #the % residuals, tm and tc are transmittances so we just need to multiply by 100 to get %
+	
+	# the % residuals, tm and tc are transmittances so we just need to multiply by 100 to get %
+	if 'Cont' in DATA['columns'].keys():
+		cont = DATA['columns']['Cont']
+		DATA['columns']['Tm'] /= cont
+		DATA['columns']['Tc'] /= cont
+	resid = 100.0*(DATA['columns']['Tm']-DATA['columns']['Tc'])
 	rms_resid = np.sqrt(np.mean(np.square(resid)))  #rms of residuals
 
 	DATA['resid'] = resid
@@ -162,12 +167,9 @@ def doc_maker():
 	SZA = str(spt_data[spectrum]['sza'])
 	zobs = str(spt_data[spectrum]['zobs'])
 	
-	freq=species[0] # the frequency list
-	tm=species[1]	# measured transmittance list
-	tc=species[2]	# calculated transmittance list
-	cont = species[3] # continuum
-	tm = tm/cont
-	tc = tc/cont
+	freq=spt_data[spectrum]['columns']['Freq'] # the frequency list
+	tm=spt_data[spectrum]['columns']['Tm']	# measured transmittance list
+	tc=spt_data[spectrum]['columns']['Tc']	# calculated transmittance list
 	not_gas = 4 # number of column that are not retrieved species
 	residuals = spt_data[spectrum]['resid'] # 100*(calculated - measured)
 	sigma_rms = spt_data[spectrum]['rms_resid'] # sqrt(mean(residuals**2))
@@ -216,11 +218,6 @@ def doc_maker():
 	# adding the calculated spectrum
 	plots.append(fig.line(x=freq,y=tc,color='chartreuse',line_width=2,name='Tc'))
 	#fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j+2]],names=['Tc'],tooltips=OrderedDict( [('name','Calculated'),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
-
-	# adding the continuum
-	#plots.append(fig.line(x=freq,y=cont,color='#FF3399',line_dash='dashed',line_width=2,name='Cont'))
-	#fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j+1]],names=['Cont'],tooltips=OrderedDict( [('name','Continuum'),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
-	
 	
 	# legend outside of the figure
 	fig_legend=Legend(items=[(header[j+not_gas],[plots[j]]) for j in range(len(species)-not_gas)]+[('Measured',[plots[-2]]),('Calculated',[plots[-1]])],location=(0,0),border_line_alpha=0)
