@@ -76,6 +76,50 @@ def read_spt(path):
 
 	return DATA
 
+def save_x_bounds(attr,old,new):
+	global spt_data
+	if attr == 'start':
+		spt_data['fig_x'][0] = new
+	else:
+		spt_data['fig_x'][1] = new
+
+def save_y_bounds(attr,old,new):
+	global spt_data
+	if attr == 'start':
+		spt_data['fig_y'][0] = new
+	else:
+		spt_data['fig_y'][1] = new
+
+def save_y_resid_bounds(attr,old,new):
+	global spt_data
+	if attr == 'start':
+		spt_data['fig_resid_y'][0] = new
+	else:
+		spt_data['fig_resid_y'][1] = new
+
+def update_bounds():
+	global spt_data
+
+	if 'prev_spec' not in spt_data.keys():
+		return
+	cur_spec = spt_data['cur_spec']
+
+	fig = curdoc().select_one({'name':'spec_fig'})
+	fig_resid = curdoc().select_one({'name':'resid_fig'})
+
+	cur_x = spt_data[cur_spec]['columns']['Freq']
+	prev_x = spt_data['fig_x']
+
+	cur_xhw = (cur_x[-1]-cur_x[0])/2. # window half-width, will allow to keep zooms that slightly exceed the window wavenumber range
+
+	# only update horizontal bounds if they fit in the new spectrum data
+	if cur_x[0]-cur_xhw<prev_x[0] and cur_x[-1]+cur_xhw>prev_x[1]:
+		fig.x_range.start,fig.x_range.end = spt_data['fig_x']
+
+	# since it is all transmittance we can always update the vertical bounds
+	fig.y_range.start,fig.y_range.end = spt_data['fig_y']
+	fig_resid.y_range.start,fig_resid.y_range.end = spt_data['fig_resid_y']
+
 def load_spectrum():
 	"""
 	callback for the load_spectrum button
@@ -95,6 +139,10 @@ def load_spectrum():
 	spt_data['cur_spec'] = spectrum
 
 	doc_maker()
+
+	update_bounds()
+
+	spt_data['prev_spec'] = spectrum
 
 def update_spec_path(attr,old,new):
 	"""
@@ -180,7 +228,7 @@ def doc_maker():
 	fig = figure(name="spec_fig",title=spectrum+'; SZA='+SZA+'; zobs='+zobs+'km; %resid=100*(Measured-Calculated); RMSresid='+('%.4f' % sigma_rms)+'%',plot_width = 1000,plot_height=400,tools=TOOLS,y_range=Range1d(-0.04,1.04),outline_line_alpha=0,active_inspect="crosshair",active_drag="box_zoom")
 	# residual figure
 	fig_resid = figure(name="resid_fig",plot_width=1000,plot_height=150,x_range=fig.x_range,tools=TOOLS,y_range=Range1d(-3,3),outline_line_alpha=0,active_inspect="crosshair",active_drag="box_zoom")
-	
+
 	# axes labels
 	fig_resid.xaxis.axis_label =  u'Wavenumber (cm\u207B\u00B9)'
 	fig_resid.yaxis.axis_label = '% Residuals'
@@ -293,6 +341,16 @@ def doc_maker():
 	group=widgetbox(clear_button,check_button,hover_button,path_input,select_spectrum,load_button,width=200)
 	
 	app_grid = gridplot([[sub_grid,group]],toolbar_location=None)
+
+	# Callbacks on axis ranges of figures, do this after the doc was saved as standalone html
+	if 'fig_x' not in spt_data.keys():
+		spt_data.update({'fig_x':[fig.x_range.start,fig.x_range.end],'fig_y':[fig.y_range.start,fig.y_range.end],'fig_resid_y':[fig_resid.y_range.start,fig_resid.y_range.end]})
+	fig.x_range.on_change('start',save_x_bounds)
+	fig.x_range.on_change('end',save_x_bounds)
+	fig.y_range.on_change('start',save_y_bounds)
+	fig.y_range.on_change('end',save_y_bounds)
+	fig_resid.y_range.on_change('start',save_y_resid_bounds)
+	fig_resid.y_range.on_change('end',save_y_resid_bounds)
 	
 	# add that grid to the document
 	curdoc().add_root(app_grid)
