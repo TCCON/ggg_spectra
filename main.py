@@ -58,21 +58,22 @@ def read_spt(path):
 	for var in head:
 		DATA['columns'][var] = content_T[head.index(var)]
 
-	DATA['sza'] = float(content[1].split()[4])
-	DATA['zobs'] = float(content[1].split()[5])
+	DATA['params'] = content[1].split()
+	DATA['sza'] = float(DATA['params'][4])
+	DATA['zobs'] = float(DATA['params'][5])
+	DATA['xzo'] = float(DATA['params'][10])
 	
 	# the % residuals, tm and tc are transmittances so we just need to multiply by 100 to get %
 	if 'Cont' in DATA['columns'].keys():
 		cont = DATA['columns']['Cont']
-		DATA['columns']['Tm'] /= cont
-		DATA['columns']['Tc'] /= cont
+		xzo = DATA['xzo']
+		DATA['columns']['Tm'] = (DATA['columns']['Tm']/cont-xzo) / (1-xzo)
+		DATA['columns']['Tc'] = (DATA['columns']['Tc']/cont-xzo) / (1-xzo)
 	resid = 100.0*(DATA['columns']['Tm']-DATA['columns']['Tc'])
 	rms_resid = np.sqrt(np.mean(np.square(resid)))  #rms of residuals
 
 	DATA['resid'] = resid
 	DATA['rms_resid'] = rms_resid
-
-	DATA['params'] = content[1].split()
 
 	return DATA
 
