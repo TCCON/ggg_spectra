@@ -1,6 +1,8 @@
 import os
 import sys
 import subprocess
+import json
+import argparse
 
 import collections
 from collections import OrderedDict
@@ -31,10 +33,6 @@ from bokeh.resources import CDN
 from bokeh.embed import file_html
 
 import numpy as np
-
-#############
-# Functions #
-#############
 
 
 def read_spt(path):
@@ -104,6 +102,9 @@ def save_y_resid_bounds(attr, old, new):
 
 
 def update_bounds():
+    """
+    When loading a new spectrum, keep the same axis limits that were last used with the previous spectrum.
+    """
     global spt_data
 
     if "prev_spec" not in spt_data.keys():
@@ -131,7 +132,7 @@ def update_bounds():
 
 def load_spectrum():
     """
-    callback for the load_spectrum button
+    Callback for the load_spectrum button
     """
 
     global spt_data
@@ -156,7 +157,7 @@ def load_spectrum():
 
 def update_spec_path(attr, old, new):
     """
-    changes the path to the spectra
+    Changes the path to the spectra
     """
     global custom_path
 
@@ -172,6 +173,9 @@ def update_spec_path(attr, old, new):
 
 
 def add_vlinked_crosshairs(fig1, fig2):
+    """
+    Make a crosshair to follow the mouse
+    """
     js_move = """if(cb_obj.x >= fig.x_range.start && cb_obj.x <= fig.x_range.end && cb_obj.y >= fig.y_range.start && cb_obj.y <= fig.y_range.end)
                     { cross.spans.height.computed_location = cb_obj.sx }
                 else 
@@ -191,53 +195,24 @@ def add_vlinked_crosshairs(fig1, fig2):
 
 
 def doc_maker():
+    """
+    Build the document layout
+    """
 
     global spt_data, custom_path
 
     app_path = os.path.abspath(os.path.dirname(__file__))  # full path to ggg_spectra
     spec_path = os.path.join(app_path, "spectra")  # default fodler to look for spectra
-    save_path = os.path.join(app_path, "save")  # ggg_spectra/save
 
     custom_path = ""  # optional user specified path to the spectra
 
     TOOLS = "box_zoom,wheel_zoom,pan,undo,redo,reset,crosshair,save"  # tools for bokeh figures
 
-    # hardcode colors of elements
+    # The color of each element is hardcoded in app_path/data/colors.json
     # this should include all the standard tccon species
     # it is ok for different species to have the same color if they are not retrieved in the same window
-    colors = {
-        "co2": "red",
-        "lco2": "red",
-        "zco2": "red",
-        "tco2": "red",
-        "wco2": "red",
-        "2co2": "olive",
-        "3co2": "hotpink",
-        "4co2": "indigo",
-        "0co2": "green",
-        "ch4": "green",
-        "2ch4": "olive",
-        "3ch4": "hotpink",
-        "co": "darkred",
-        "2co": "darkgray",
-        "th2o": "blue",
-        "h2o": "blue",
-        "hdo": "cyan",
-        "hcl": "magenta",
-        "hf": "pink",
-        "n2o": "darkorange",
-        "o2": "purple",
-        "ao2": "purple",
-        "bo2": "purple",
-        "0o2": "green",
-        "n2": "red",
-        "o3": "red",
-        "no": "pink",
-        "nh3": "yellow",
-        "hcn": "darkgray",
-        "solar": "goldenrod",
-        "other": "salmon",
-    }
+    with open(os.path.join(app_path, "data", "colors.json"), "rb") as infile:
+        colors = json.load(infile)
 
     curdoc().clear()  # removes everything in the current document
 
@@ -317,7 +292,7 @@ def doc_maker():
     )
 
     # axes labels
-    fig_resid.xaxis.axis_label = u"Wavenumber (cm\u207B\u00B9)"
+    fig_resid.xaxis.axis_label = "Wavenumber (cm\u207B\u00B9)"
     fig_resid.yaxis.axis_label = "% Residuals"
 
     fig.yaxis.axis_label = "Transmittance"
@@ -451,6 +426,11 @@ def doc_maker():
     except:
         ext = ""
 
+    if ext:
+        save_file = os.path.join(save_path, "{}_{}.html".format(spectrum, ext))
+    else:
+        save_file = os.path.join(save_path, "{}.html".format(spectrum))
+
     # title div
     div = Div(
         text='<p align="center"><font size=4><b>{}</b></font></p>'.format(ext),
@@ -488,8 +468,9 @@ def doc_maker():
     grid = gridplot([[sub_grid, group]], toolbar_location=None)
 
     # save a standalone html document in ggg_spectra/save
-    with open(os.path.join(save_path, "{}_{}.html".format(spectrum, ext)), "w") as outfile:
+    with open(save_file, "w") as outfile:
         outfile.write(file_html(grid, CDN, spectrum[:12] + spectrum[-3:]))
+    print(f"Wrote {save_file}")
 
     group = widgetbox(
         clear_button,
@@ -532,8 +513,6 @@ def modify_doc(doc):
 
     global spt_data
 
-    # spt data is used as a global variable as it makes it easier to access from the different callbacks without having to use functools
-
     spt_data = {}
 
     curstate().document = doc
@@ -545,9 +524,9 @@ def modify_doc(doc):
     doc_maker()
 
 
-def main():
+def start_server():
     """
-    Launch the server and connect to it.
+    Start the bokeh server and connect to it.
     """
     print("Preparing a bokeh application.")
     io_loop = IOLoop.current()
@@ -559,6 +538,28 @@ def main():
 
     io_loop.add_callback(server.show, "/")
     io_loop.start()
+
+
+def main():
+
+    global save_path
+
+    parser = argparse.ArgumentParser(
+        description="Plot the contents of spectrum files created by GGG using a bokeh server"
+    )
+    parser.add_argument(
+        "-s",
+        "--save-path",
+        default=os.getcwd(),
+        help="full path to the directory where the html plots will be saved, defaults to the current working directory",
+    )
+    args = parser.parse_args()
+
+    save_path = args.save_path
+
+    print(f"Each open spectrum will be saved as a standalone html file under {save_path}")
+
+    start_server()
 
 
 if __name__ == "__main__":

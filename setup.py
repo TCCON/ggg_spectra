@@ -10,7 +10,7 @@ setup(
     license="MIT",
     packages=["ggg_spectra"],
     package_dir={"ggg_spectra": "ggg_spectra"},
-    package_data={"ggg_spectra": ["spectra/*", "save/.*",]},
+    package_data={"ggg_spectra": ["spectra/*", "save/.*", "data/*.json",]},
     classifiers=[
         "Intended Audience :: Science/Research",
         "License :: OSI Approved :: MIT License",
