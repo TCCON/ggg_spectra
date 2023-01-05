@@ -26,7 +26,7 @@ from bokeh.models import (
     HoverTool,
     CrosshairTool,
 )
-from bokeh.layouts import gridplot, Column
+from bokeh.layouts import gridplot, widgetbox, Column
 from bokeh.resources import CDN
 from bokeh.embed import file_html
 
@@ -51,7 +51,9 @@ def read_spt(path):
 
     DATA["header"] = head
 
-    content_T = np.array([[elem for elem in line.split()] for line in content[3:]], dtype=float).T
+    content_T = np.array(
+        [[elem for elem in line.split()] for line in content[3:]], dtype=np.float
+    ).T
 
     DATA["columns"] = {}
     for var in head:
@@ -129,7 +131,7 @@ def update_bounds():
 
 def load_spectrum():
     """
-    Callback for the load_spectrum button
+    callback for the load_spectrum button
     """
 
     global spt_data
@@ -145,9 +147,6 @@ def load_spectrum():
 
     spt_data["cur_spec"] = spectrum
 
-    models = list(curdoc().select({"type":"Model"}))
-    print(models)
-
     doc_maker()
 
     update_bounds()
@@ -157,19 +156,19 @@ def load_spectrum():
 
 def update_spec_path(attr, old, new):
     """
-    Changes the path to the spectra
+    changes the path to the spectra
     """
-    global custom_spec_path
+    global custom_path
 
-    custom_spec_path = new
+    custom_path = new
 
     select_spectrum = curdoc().select_one({"name": "select_spectrum"})
 
-    if not os.path.isdir(custom_spec_path):
+    if not os.path.isdir(custom_path):
         print("The given path is not an existing directory\nReverting to default spectrum folder")
         select_spectrum.options = [""] + sorted(os.listdir(spec_path))
     else:
-        select_spectrum.options = [""] + sorted(os.listdir(custom_spec_path))
+        select_spectrum.options = [""] + sorted(os.listdir(custom_path))
 
 
 def add_vlinked_crosshairs(fig1, fig2):
@@ -192,21 +191,14 @@ def add_vlinked_crosshairs(fig1, fig2):
 
 
 def doc_maker():
-    """
-    Make the whole document
-    """
 
-    global spt_data, custom_spec_path
+    global spt_data, custom_path
 
-    #############
-    #   Setup   #
-    #############
-
-    app_path = os.path.dirname(__file__)  # full path to ggg_spectra
+    app_path = os.path.abspath(os.path.dirname(__file__))  # full path to ggg_spectra
     spec_path = os.path.join(app_path, "spectra")  # default fodler to look for spectra
-    save_path = os.path.join(app_path, "save")
+    save_path = os.path.join(app_path, "save")  # ggg_spectra/save
 
-    custom_spec_path = ""  # optional user specified path to the spectra
+    custom_path = ""  # optional user specified path to the spectra
 
     TOOLS = "box_zoom,wheel_zoom,pan,undo,redo,reset,crosshair,save"  # tools for bokeh figures
 
@@ -263,13 +255,13 @@ def doc_maker():
     path_input.on_change("value", update_spec_path)
 
     # button to load the spectrum selected in the 'select_spectrum' dropdown
-    load_button = Button(label="Load spectrum", width=200)
+    load_button = Button(label="Load spectrum", width=200, css_classes=["custom_button"])
     load_button.on_click(load_spectrum)
 
     if spt_data == {}:
-        curdoc().add_root(Column(path_input, select_spectrum, load_button))
-        if custom_spec_path:
-            path_input.value = custom_spec_path
+        curdoc().add_root(widgetbox(path_input, select_spectrum, load_button))
+        if custom_path:
+            path_input.value = custom_path
         else:
             path_input.value = spec_path
         return
@@ -303,8 +295,8 @@ def doc_maker():
         + "km; %resid=100*(Measured-Calculated); RMSresid="
         + ("%.4f" % sigma_rms)
         + "%",
-        width=1000,
-        height=400,
+        plot_width=1000,
+        plot_height=400,
         tools=TOOLS,
         y_range=Range1d(-0.04, 1.04),
         outline_line_alpha=0,
@@ -314,8 +306,8 @@ def doc_maker():
     # residual figure
     fig_resid = figure(
         name="resid_fig",
-        width=1000,
-        height=150,
+        plot_width=1000,
+        plot_height=150,
         x_range=fig.x_range,
         tools=TOOLS,
         y_range=Range1d(-3, 3),
@@ -369,7 +361,7 @@ def doc_maker():
                 mode="vline",
                 line_policy="prev",
                 renderers=[plots[j]],
-                name=header[j + not_gas],
+                names=[header[j + not_gas]],
                 tooltips=OrderedDict(
                     [
                         ("name", header[j + not_gas]),
@@ -387,7 +379,7 @@ def doc_maker():
             mode="vline",
             line_policy="prev",
             renderers=[plots[j + 1]],
-            name="Tm",
+            names=["Tm"],
             tooltips=OrderedDict(
                 [("name", "Measured"), ("index", "$index"), ("(x;y)", "(@x{0.00} ; @y{0.000})")]
             ),
@@ -396,7 +388,7 @@ def doc_maker():
 
     # adding the calculated spectrum
     plots.append(fig.line(x=freq, y=tc, color="chartreuse", line_width=2, name="Tc"))
-    # fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j+2]],name=['Tc'],tooltips=OrderedDict( [('name','Calculated'),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
+    # fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j+2]],names=['Tc'],tooltips=OrderedDict( [('name','Calculated'),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
 
     # legend outside of the figure
     fig_legend = Legend(
@@ -416,7 +408,7 @@ def doc_maker():
         HoverTool(
             mode="vline",
             line_policy="prev",
-            name="residuals",
+            names=["residuals"],
             tooltips={"index": "$index", "(x;y)": "($x{0.00} ; $y{0.000})"},
         )
     )
@@ -435,38 +427,34 @@ def doc_maker():
     checkbox_code = "".join(
         ["p" + str(i) + ".visible = checkbox.active.includes(" + str(i) + ");" for i in N_plots]
     )
-    checkbox.js_on_change(
-        "active",
-        CustomJS(args={key: value for key, value in checkbox_iterable}, code=checkbox_code),
+    checkbox.callback = CustomJS(
+        args={key: value for key, value in checkbox_iterable}, code=checkbox_code
     )
 
     # button to uncheck all checkboxes
     clear_button = Button(label="Hide all lines", width=200)
     clear_button_code = """checkbox.active=[];""" + checkbox_code
-    clear_button.js_on_click(
-        CustomJS(args={key: value for key, value in checkbox_iterable}, code=clear_button_code)
+    clear_button.callback = CustomJS(
+        args={key: value for key, value in checkbox_iterable}, code=clear_button_code
     )
 
     # button to check all checkboxes
     check_button = Button(label="Show all lines", width=200)
     check_button_code = """checkbox.active=""" + str(N_plots) + """;""" + checkbox_code
-    check_button.js_on_click(
-        CustomJS(args={key: value for key, value in checkbox_iterable}, code=check_button_code)
+    check_button.callback = CustomJS(
+        args={key: value for key, value in checkbox_iterable}, code=check_button_code
     )
 
     # extension for the saved file name based on the path to spectra
     try:
-        ext = os.path.basename(os.path.split(custom_spec_path)[0])
+        ext = os.path.basename(os.path.split(custom_path)[0])
     except:
         ext = ""
-        save_file = os.path.join(save_path, "{}.html".format(spectrum))
-    else:
-        save_file = os.path.join(save_path, "{}_{}.html".format(spectrum, ext))
 
     # title div
     div = Div(
         text='<p align="center"><font size=4><b>{}</b></font></p>'.format(ext),
-        width=fig.width - 100,
+        width=fig.plot_width - 100,
     )
 
     add_vlinked_crosshairs(fig, fig_resid)
@@ -488,24 +476,22 @@ def doc_maker():
     """ + "".join(
         ["hover{}.active = !hover{}.active;".format(i, i) for i in range(len(hover_list))]
     )
-    hover_button.js_on_click(
-        CustomJS(
-            args={"hover{}".format(i): elem for i, elem in enumerate(hover_list)},
-            code=hover_button_code,
-        )
+    hover_button.callback = CustomJS(
+        args={"hover{}".format(i): elem for i, elem in enumerate(hover_list)},
+        code=hover_button_code,
     )
 
     # put all the widgets in a box
-    group = Column(clear_button, check_button, hover_button, width=200, name="group")
+    group = widgetbox(clear_button, check_button, hover_button, width=200, name="group")
 
     # the final grid for static plots
     grid = gridplot([[sub_grid, group]], toolbar_location=None)
 
     # save a standalone html document in ggg_spectra/save
-    with open(save_file, "w") as outfile:
+    with open(os.path.join(save_path, "{}_{}.html".format(spectrum, ext)), "w") as outfile:
         outfile.write(file_html(grid, CDN, spectrum[:12] + spectrum[-3:]))
 
-    group = Column(
+    group = widgetbox(
         clear_button,
         check_button,
         hover_button,
@@ -536,8 +522,8 @@ def doc_maker():
     # add that grid to the document
     curdoc().add_root(app_grid)
 
-    if custom_spec_path:
-        path_input.value = custom_spec_path
+    if custom_path:
+        path_input.value = custom_path
     else:
         path_input.value = spec_path
 
