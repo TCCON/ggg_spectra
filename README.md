@@ -34,7 +34,11 @@ If you close the browser window, the server is still running and the app still a
 
 To shut the server down, use ctrl+C in the terminal.
 
-Each time a spectrum is loaded, a static .html file with the plot will be saved in **ggg_spectra/save/**
+Each time a spectrum is loaded, a static .html file with the plot will be saved by default under the current working directory.
+
+The output directory can be specified with a **-s/--save-path** argument.
+
+	ggg_spectra -s /path/to/output_dir
 
 The colors of the lines are harcoded for each element in **ggg_spectra/data/colors.json**, you can update that dictionary to add new elements or change colors.
 
