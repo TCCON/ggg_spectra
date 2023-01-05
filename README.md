@@ -14,7 +14,7 @@ Activate the environmentL:
 
 Install the package with:
 
-	python -m pip install git+https://bitbucket.org/rocheseb/ggg_spectra
+	python -m pip install git+https://github.com/TCCON/ggg_spectra
 
 ### Running ###
 
@@ -44,7 +44,7 @@ The colors of the lines are harcoded for each element in **ggg_spectra/data/colo
 
 For this it would be best to clone the repo and install it in edit mode:
 
-	git clone https://bitbucket.org/rocheseb/ggg_spectra
+	git clone https://github.com/TCCON/ggg_spectra
 
 	python -m pip install -e ggg_spectra
 
