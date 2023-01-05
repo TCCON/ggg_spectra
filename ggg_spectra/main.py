@@ -534,7 +534,12 @@ def start_server():
 
     server = Server({"/": bokeh_app}, io_loop=io_loop)
     server.start()
-    print("Opening Bokeh application")
+    if server.address is None:
+        address = f"localhost:{server.port}"
+    else:
+        address = server.address
+
+    print(f"Opening Bokeh application at {address}")
 
     io_loop.add_callback(server.show, "/")
     io_loop.start()
