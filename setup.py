@@ -1,0 +1,39 @@
+from setuptools import setup
+
+setup(
+    name='ggg_spectra',
+    description='Make plots from the spectrum files output by GGG',
+    author='Sebastien Roche',
+    author_email='sebastien.roche@mail.utoronto.ca',
+    version='1.0.0',
+    url='https://bitbucket.org/rocheseb/ggg_spectra',
+    license='MIT',
+    packages=['ggg_spectra'],
+    package_dir={'ggg_spectra':'ggg_spectra'},
+    package_data={
+        'ggg_spectra':[
+            'spectra/*',
+            'save/.*',
+        ]
+    },
+    classifiers=[
+        "Intended Audience :: Science/Research",
+        "License :: OSI Approved :: MIT License",
+        "Programming Language :: Python",
+        "Programming Language :: Python :: 3",
+        "Programming Language :: Python :: 3.9",
+        "Operating System :: OS Independent",
+    ],
+    include_package_data=True,    
+    entry_points={
+        'console_scripts':[
+            'ggg_spectra=ggg_spectra.main:main',
+        ],
+    },
+    zip_safe=False,
+    install_requires=[
+        'numpy',
+        'bokeh',
+    ],
+    python_requires=">=3.7",
+)
