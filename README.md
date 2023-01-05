@@ -14,7 +14,7 @@ Activate the environmentL:
 
 Install the package with:
 
-	python -m pip install /path/to/ggg_spectra
+	python -m pip install git+https://bitbucket.org/rocheseb/ggg_spectra
 
 ### Running ###
 
@@ -37,6 +37,16 @@ To shut the server down, use ctrl+C in the terminal.
 Each time a spectrum is loaded, a static .html file with the plot will be saved in **ggg_spectra/save/**
 
 The colors of the lines are harcoded for each element in **ggg_spectra/data/colors.json**, you can update that dictionary to add new elements or change colors.
+
+For this it would be best to clone the repo and install it in edit mode:
+
+	git clone https://bitbucket.org/rocheseb/ggg_spectra
+
+	python -m pip install -e ggg_spectra
+
+To run the code directly just call the main.py program:
+
+	python /path/to/main.py
 
 #### Contact ####
 
