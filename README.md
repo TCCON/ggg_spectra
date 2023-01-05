@@ -1,6 +1,8 @@
 # README #
 
-This app plots the output spectrum files of GGG (typically saved in the GGGPATH/spt folder)
+This app plots the output spectrum files of GGG (typically saved in the GGGPATH/spt folder).
+
+The plotting is done with [bokeh](https://bokeh.org/) in the browser using a local server where spectra can be loaded, standalone plots are saved as html pages. 
 
 ### Installation ###
 
