@@ -5,7 +5,7 @@ setup(
     description="Make plots from the spectrum files output by GGG",
     author="Sebastien Roche",
     author_email="sebastien.roche@mail.utoronto.ca",
-    version="1.0.0",
+    version="1.1.0",
     url="https://bitbucket.org/rocheseb/ggg_spectra",
     license="MIT",
     packages=["ggg_spectra"],
