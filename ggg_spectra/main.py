@@ -159,17 +159,18 @@ def update_spec_path(attr, old, new):
     """
     Changes the path to the spectra
     """
-    global custom_path
+    global spec_path
 
-    custom_path = new
+    spec_path = new
 
     select_spectrum = curdoc().select_one({"name": "select_spectrum"})
+    path_input = curdoc().select_one({"name": "path_input"})
 
-    if not os.path.isdir(custom_path):
-        print("The given path is not an existing directory\nReverting to default spectrum folder")
-        select_spectrum.options = [""] + sorted(os.listdir(spec_path))
+    if not os.path.isdir(spec_path):
+        print("The given path is not an existing directory\nReverting to previous spectrum folder")
+        path_input.value = old
     else:
-        select_spectrum.options = [""] + sorted(os.listdir(custom_path))
+        select_spectrum.options = [""] + sorted(os.listdir(spec_path))
 
 
 def add_vlinked_crosshairs(fig1, fig2):
@@ -199,12 +200,9 @@ def doc_maker():
     Build the document layout
     """
 
-    global spt_data, custom_path
+    global spt_data
 
     app_path = os.path.abspath(os.path.dirname(__file__))  # full path to ggg_spectra
-    spec_path = os.path.join(app_path, "spectra")  # default fodler to look for spectra
-
-    custom_path = ""  # optional user specified path to the spectra
 
     TOOLS = "box_zoom,wheel_zoom,pan,undo,redo,reset,crosshair,save"  # tools for bokeh figures
 
@@ -235,8 +233,8 @@ def doc_maker():
 
     if spt_data == {}:
         curdoc().add_root(widgetbox(path_input, select_spectrum, load_button))
-        if custom_path:
-            path_input.value = custom_path
+        if spec_path:
+            path_input.value = spec_path
         else:
             path_input.value = spec_path
         return
@@ -422,7 +420,7 @@ def doc_maker():
 
     # extension for the saved file name based on the path to spectra
     try:
-        ext = os.path.basename(os.path.split(custom_path)[0])
+        ext = os.path.basename(os.path.split(spec_path)[0])
     except:
         ext = ""
 
@@ -503,8 +501,8 @@ def doc_maker():
     # add that grid to the document
     curdoc().add_root(app_grid)
 
-    if custom_path:
-        path_input.value = custom_path
+    if spec_path:
+        path_input.value = spec_path
     else:
         path_input.value = spec_path
 
@@ -547,10 +545,19 @@ def start_server():
 
 def main():
 
-    global save_path
+    global save_path, spec_path
+
+    app_path = os.path.abspath(os.path.dirname(__file__))
+    spec_path = os.path.join(app_path, "spectra")
 
     parser = argparse.ArgumentParser(
         description="Plot the contents of spectrum files created by GGG using a bokeh server"
+    )
+    parser.add_argument(
+        "-i",
+        "--indir",
+        default=spec_path,
+        help="full path to the directory where GGG spectra are saved",
     )
     parser.add_argument(
         "-s",
@@ -560,7 +567,14 @@ def main():
     )
     args = parser.parse_args()
 
+    spec_path = args.indir
     save_path = args.save_path
+
+    if not os.path.exists(spec_path):
+        # not need to raise an exception since it can still be updated in the input widget
+        print(
+            f"You gave a wrong path: {spec_path}\nUpdate the spectrum path using the TextInput widget"
+        )
 
     print(f"Each open spectrum will be saved as a standalone html file under {save_path}")
 
