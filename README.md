@@ -30,13 +30,15 @@ A browser window will pop up with the app.
 
 There is a textinput widget in which the full path to a different folder containing spectra can be given.
 
-By default the app can see spectrum files in the ggg_spectra/spectra folder.
+The initial directory of input spectra can be specified with a **-i/--indir** argument. By default the app can see spectrum files in the **ggg_spectra/spectra** folder.
 
 If you close the browser window, the server is still running and the app still available where indicated in the terminal.
 
 To shut the server down, use ctrl+C in the terminal.
 
 Each time a spectrum is loaded, a static .html file with the plot will be saved by default under the current working directory.
+
+There is a second textinput widget in which an extension for the saved for the name of the saved file, following **spectrum_extension.html** with **spectrum** the chosen spectrum file name and **extension** the content of the textinput. This is there to avoid overwriting a saved file when looking at spectra with the same file names in different folders. 
 
 The output directory can be specified with a **-s/--save-path** argument.
 

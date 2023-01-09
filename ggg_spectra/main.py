@@ -195,6 +195,15 @@ def add_vlinked_crosshairs(fig1, fig2):
     fig2.js_on_event("mouseleave", CustomJS(args=args, code=js_leave))
 
 
+def update_save_input(attr,old,new):
+    """
+    Save the value of the save_input widget in spt_data so it can be preserved after a new call to doc_maker
+    """
+    global spt_data
+
+    spt_data["save_ext"] = new 
+
+
 def doc_maker():
     """
     Build the document layout
@@ -227,12 +236,18 @@ def doc_maker():
     path_input = TextInput(title="Spectra folder", width=200, name="path_input")
     path_input.on_change("value", update_spec_path)
 
+    # textinput to change the extension for the save spectra spectrum_extension.html
+    save_input = TextInput(title="Save ext (spectrum_ext.html)", width=200, name="save_input")
+    save_input.on_change("value", update_save_input)
+
     # button to load the spectrum selected in the 'select_spectrum' dropdown
     load_button = Button(label="Load spectrum", width=200, css_classes=["custom_button"])
     load_button.on_click(load_spectrum)
 
     if spt_data == {}:
-        curdoc().add_root(widgetbox(path_input, select_spectrum, load_button))
+        curdoc().add_root(widgetbox(path_input, select_spectrum, save_input, load_button))
+        save_input.value = ""
+        spt_data["save_ext"] = ""
         if spec_path:
             path_input.value = spec_path
         else:
@@ -240,6 +255,15 @@ def doc_maker():
         return
 
     spectrum = spt_data["cur_spec"]
+
+    # extension for the saved file name based on the path to spectra
+    ext = spt_data["save_ext"]
+    save_input.value = spt_data["save_ext"]
+
+    if ext:
+        save_file = os.path.join(save_path, "{}_{}.html".format(spectrum, ext))
+    else:
+        save_file = os.path.join(save_path, "{}.html".format(spectrum))
 
     header = spt_data[spectrum]["header"]
 
@@ -418,17 +442,6 @@ def doc_maker():
         args={key: value for key, value in checkbox_iterable}, code=check_button_code
     )
 
-    # extension for the saved file name based on the path to spectra
-    try:
-        ext = os.path.basename(os.path.split(spec_path)[0])
-    except:
-        ext = ""
-
-    if ext:
-        save_file = os.path.join(save_path, "{}_{}.html".format(spectrum, ext))
-    else:
-        save_file = os.path.join(save_path, "{}.html".format(spectrum))
-
     # title div
     div = Div(
         text='<p align="center"><font size=4><b>{}</b></font></p>'.format(ext),
@@ -476,6 +489,7 @@ def doc_maker():
         hover_button,
         path_input,
         select_spectrum,
+        save_input,
         load_button,
         width=200,
     )
