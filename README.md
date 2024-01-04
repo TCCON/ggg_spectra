@@ -32,6 +32,8 @@ There is a textinput widget in which the full path to a different folder contain
 
 The initial directory of input spectra can be specified with a **-i/--indir** argument. By default the app can see spectrum files in the **ggg_spectra/spectra** folder.
 
+A full spectrum file path can be given to **--indir**, in that case the static html plot will be saved without starting the browser app. 
+
 If you close the browser window, the server is still running and the app still available where indicated in the terminal.
 
 To shut the server down, use ctrl+C in the terminal.
