@@ -195,20 +195,19 @@ def add_vlinked_crosshairs(fig1, fig2):
     fig2.js_on_event("mouseleave", CustomJS(args=args, code=js_leave))
 
 
-def update_save_input(attr,old,new):
+def update_save_input(attr, old, new):
     """
     Save the value of the save_input widget in spt_data so it can be preserved after a new call to doc_maker
     """
     global spt_data
 
-    spt_data["save_ext"] = new 
+    spt_data["save_ext"] = new
 
 
-def doc_maker():
+def build_figure(spec_path: str, save_path: str = os.getcwd()):
     """
-    Build the document layout
+    Make the figure
     """
-
     global spt_data
 
     app_path = os.path.abspath(os.path.dirname(__file__))  # full path to ggg_spectra
@@ -221,44 +220,18 @@ def doc_maker():
     with open(os.path.join(app_path, "data", "colors.json"), "rb") as infile:
         colors = json.load(infile)
 
-    curdoc().clear()  # removes everything in the current document
+    static = os.path.isfile(spec_path)
 
-    # dropdown to select a spectrum
-    select_spectrum = Select(
-        title="Select a spectrum:",
-        value="",
-        options=[""] + sorted(os.listdir(spec_path)),
-        name="select_spectrum",
-        width=200,
-    )
-
-    # textinput to give the full path to the location of spectra
-    path_input = TextInput(title="Spectra folder", width=200, name="path_input")
-    path_input.on_change("value", update_spec_path)
-
-    # textinput to change the extension for the save spectra spectrum_extension.html
-    save_input = TextInput(title="Save ext (spectrum_ext.html)", width=200, name="save_input")
-    save_input.on_change("value", update_save_input)
-
-    # button to load the spectrum selected in the 'select_spectrum' dropdown
-    load_button = Button(label="Load spectrum", width=200, css_classes=["custom_button"])
-    load_button.on_click(load_spectrum)
-
-    if spt_data == {}:
-        curdoc().add_root(widgetbox(path_input, select_spectrum, save_input, load_button))
-        save_input.value = ""
+    if static:
+        spt_data = {}
+        spt_data["cur_spec"] = os.path.basename(spec_path)
         spt_data["save_ext"] = ""
-        if spec_path:
-            path_input.value = spec_path
-        else:
-            path_input.value = spec_path
-        return
+        spt_data[os.path.basename(spec_path)] = read_spt(spec_path)
 
     spectrum = spt_data["cur_spec"]
 
     # extension for the saved file name based on the path to spectra
     ext = spt_data["save_ext"]
-    save_input.value = spt_data["save_ext"]
 
     if ext:
         save_file = os.path.join(save_path, "{}_{}.html".format(spectrum, ext))
@@ -339,7 +312,6 @@ def doc_maker():
     # plotting species lines
     plots = []
     for j in range(len(species) - not_gas):
-
         if header[j + not_gas] not in colors.keys():
             colo = "hotpink"
             print(
@@ -483,6 +455,64 @@ def doc_maker():
         outfile.write(file_html(grid, CDN, spectrum[:12] + spectrum[-3:]))
     print(f"Wrote {save_file}")
 
+    if not static:
+        return clear_button, check_button, hover_button, sub_grid, fig, fig_resid
+
+
+def doc_maker():
+    """
+    Build the document layout
+    """
+
+    global spt_data
+
+    curdoc().clear()  # removes everything in the current document
+
+    # Setup the widgets with python callbacks
+
+    # dropdown to select a spectrum
+    select_spectrum = Select(
+        title="Select a spectrum:",
+        value="",
+        options=[""] + os.listdir(spec_path),
+        name="select_spectrum",
+        width=200,
+    )
+
+    # textinput to give the full path to the location of spectra
+    path_input = TextInput(title="Spectra folder", width=200, name="path_input")
+    path_input.on_change("value", update_spec_path)
+
+    # textinput to change the extension for the save spectra spectrum_extension.html
+    save_input = TextInput(title="Save ext (spectrum_ext.html)", width=200, name="save_input")
+    save_input.on_change("value", update_save_input)
+
+    # button to load the spectrum selected in the 'select_spectrum' dropdown
+    load_button = Button(label="Load spectrum", width=200, css_classes=["custom_button"])
+    load_button.on_click(load_spectrum)
+
+    if spt_data == {}:
+        curdoc().add_root(widgetbox(path_input, select_spectrum, save_input, load_button))
+        save_input.value = ""
+        spt_data["save_ext"] = ""
+        if spec_path:
+            path_input.value = spec_path
+        else:
+            path_input.value = spec_path
+        return
+
+    save_input.value = spt_data["save_ext"]
+
+    # build the static widgets and save the static html figure
+    (
+        clear_button,
+        check_button,
+        hover_button,
+        sub_grid,
+        fig,
+        fig_resid,
+    ) = build_figure(spec_path, save_path)
+
     group = widgetbox(
         clear_button,
         check_button,
@@ -522,7 +552,6 @@ def doc_maker():
 
 
 def modify_doc(doc):
-
     global spt_data
 
     spt_data = {}
@@ -558,7 +587,6 @@ def start_server():
 
 
 def main():
-
     global save_path, spec_path
 
     app_path = os.path.abspath(os.path.dirname(__file__))
@@ -571,7 +599,7 @@ def main():
         "-i",
         "--indir",
         default=spec_path,
-        help="full path to the directory where GGG spectra are saved",
+        help="full path to the directory where GGG spectra are saved. If a full path to a spectrum file is given instead, only save a static html plot for that file",
     )
     parser.add_argument(
         "-s",
@@ -592,7 +620,10 @@ def main():
 
     print(f"Each open spectrum will be saved as a standalone html file under {save_path}")
 
-    start_server()
+    if os.path.isfile(spec_path):
+        build_figure(spec_path, save_path)
+    else:
+        start_server()
 
 
 if __name__ == "__main__":
