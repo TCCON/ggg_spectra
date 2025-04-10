@@ -60,4 +60,4 @@ To run the code directly just call the main.py program:
 
 #### Contact ####
 
-sebastien.roche@mail.utoronto.ca
+sebastien.roche@alumni.utoronto.ca
