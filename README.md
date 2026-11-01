@@ -1,63 +1,95 @@
-# README #
+# ggg_spectra
 
-This app plots the output spectrum files of GGG (typically saved in the GGGPATH/spt folder).
+`ggg_spectra` plots spectrum files produced by GGG. It runs in a local webserver. It provides an interactive, browser-based interface for browsing spectra and saves a standalone HTML plot each time you load one. You can also create a static HTML plot directly from a spectrum file without starting the interactive app.
 
-The plotting is done with [bokeh](https://bokeh.org/) in the browser using a local server where spectra can be loaded, standalone plots are saved as html pages. 
+## Requirements
 
-### Installation ###
+- Python>=3.10
 
-I suggest creating a new python environment with anaconda:
+## Installation
 
-	conda create -n gggspec python=3.6
+If you do not already have a Python environment, [install Mamba](https://mamba.readthedocs.io/en/latest/installation/mamba-installation.html), then create and activate an environment for `ggg_spectra`:
 
-Activate the environmentL:
+```bash
+mamba create -n gggspec python=3.15 pip
+mamba activate gggspec
+```
 
-	conda activate gggspec
+Install the package from GitHub:
 
-Install the package with:
+```bash
+python -m pip install git+https://github.com/TCCON/ggg_spectra
+```
 
-	python -m pip install git+https://github.com/TCCON/ggg_spectra
+To install an editable copy, for example if you plan to change the code or line colors:
 
-### Running ###
+```bash
+python -m pip install -e .
+```
 
-After the installation a console entry point is made available and the bokeh server can be started from anywhere with the command:
+After installation, the `ggg_spectra` command is available.
 
-	ggg_spectra
+## Run the interactive app
 
-### Info ###
+Start the app from anywhere with:
 
-A browser window will pop up with the app.
+```bash
+ggg_spectra
+```
 
-There is a textinput widget in which the full path to a different folder containing spectra can be given.
+By default, the app looks for spectra in the package's `spectra` directory. A browser window opens with a spectrum-selection menu and a field where you can enter a different source folder for spectra.
 
-The initial directory of input spectra can be specified with a **-i/--indir** argument. By default the app can see spectrum files in the **ggg_spectra/spectra** folder.
+When you load a spectrum, the app also saves a standalone HTML plot in the current working directory. To stop the server, press `Ctrl+C` in the terminal where you started it.
 
-A full spectrum file path can be given to **--indir**, in that case the static html plot will be saved without starting the browser app. 
+## Command-line options
 
-If you close the browser window, the server is still running and the app still available where indicated in the terminal.
+```text
+ggg_spectra [-h] [-i INDIR] [-s SAVE_PATH] [--sizing-mode MODE]
+```
 
-To shut the server down, use ctrl+C in the terminal.
+| Option | Description |
+| --- | --- |
+| `-i`, `--indir` | Input spectra directory. You can also give the path to a single spectrum file to create a static plot. Defaults to the package's `spectra` directory. |
+| `-s`, `--save-path` | Directory for saved HTML plots. Defaults to the current working directory. The directory must already exist. |
+| `--sizing-mode` | Bokeh layout sizing mode. Defaults to `scale_both`. See `ggg_spectra --help` for the available choices. |
+| `-h`, `--help` | Show command-line help. |
 
-Each time a spectrum is loaded, a static .html file with the plot will be saved by default under the current working directory.
+For example, to use another spectra folder and save plots to an existing output folder:
 
-There is a second textinput widget to specify an extension for the name of the saved file, following **spectrum_extension.html** with **spectrum** the chosen spectrum file name and **extension** the content of the textinput. This is there to avoid overwriting a saved file when looking at spectra with the same file names in different folders. 
+```bash
+ggg_spectra --indir /path/to/spectra --save-path /path/to/output
+```
 
-The output directory can be specified with a **-s/--save-path** argument.
+You can also change the spectra folder from the app after it starts.
 
-	ggg_spectra -s /path/to/output_dir
+## Create a static plot
 
-The colors of the lines are harcoded for each element in **ggg_spectra/data/colors.json**, you can update that dictionary to add new elements or change colors.
+Pass a spectrum file to `--indir`. This creates an HTML plot and exits without starting the browser app:
 
-For this it would be best to clone the repo and install it in edit mode:
+```bash
+ggg_spectra --indir /path/to/spectrum-file --save-path /path/to/output
+```
 
-	git clone https://github.com/TCCON/ggg_spectra
+The output filename is based on the spectrum filename. In the interactive app, you can enter a save extension to distinguish plots with the same spectrum filename; the extension is added after the spectrum name.
 
-	python -m pip install -e ggg_spectra
+## Run directly
 
-To run the code directly just call the main.py program:
+From the repository root, you can run the app without using the installed console command:
 
-	python /path/to/main.py
+```bash
+python -m ggg_spectra.main
+```
 
-#### Contact ####
+To make a static plot this way:
 
-sebastien.roche@alumni.utoronto.ca
+```bash
+python -m ggg_spectra.main --indir /path/to/spectrum-file --save-path /path/to/output
+```
+
+## Customize line colors
+
+Species colors are defined in `ggg_spectra/data/colors.json`. Edit this file to change existing colors or add species. Species not found in the color file are plotted in hot pink.
+
+## Contact
+
+For questions or issues, contact sebastien.roche@alumni.utoronto.ca.

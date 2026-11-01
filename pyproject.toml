@@ -1,0 +1,92 @@
+[build-system]
+requires = ["setuptools", "wheel", "setuptools_scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ggg_spectra"
+description = "Make plots from the spectrum files output by GGG"
+authors = [
+    { name = "Sebastien Roche", email = "sroche@g.harvard.edu" },
+]
+license = { text = "MIT" }
+classifiers = [
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.10"
+dynamic = ["version"]
+dependencies = [
+    "bokeh>=2.4",
+    "jinja2",
+    "matplotlib",
+    "numpy",
+    "tornado",
+]
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+[project.urls]
+Homepage = "https://bitbucket.org/rocheseb/ggg_spectra"
+
+[project.scripts]
+ggg_spectra = "ggg_spectra.main:main"
+
+[tool.setuptools]
+include-package-data = true
+license-files = ["LICENSE.md"]
+
+[tool.setuptools.packages]
+find = {namespaces = false}
+
+[tool.setuptools.package-dir]
+ggg_spectra = "ggg_spectra"
+
+[tool.setuptools.package-data]
+ggg_spectra = ["spectra/*", "save/.*", "data/*.json"]
+
+[tool.setuptools_scm]
+write_to = "ggg_spectra/_version.py"
+version_scheme = "post-release"
+
+[tool.pixi.workspace]
+channels = ["conda-forge"]
+platforms = ["linux-64", "osx-64", "osx-arm64", "win-64"]
+
+[tool.pixi.dependencies]
+python = ">=3.10"
+pytest = ">=9.2.0,<10"
+
+[tool.pixi.feature.py310.dependencies]
+python = "3.10.*"
+
+[tool.pixi.feature.py311.dependencies]
+python = "3.11.*"
+
+[tool.pixi.feature.py312.dependencies]
+python = "3.12.*"
+
+[tool.pixi.feature.py313.dependencies]
+python = "3.13.*"
+
+[tool.pixi.feature.py314.dependencies]
+python = "3.14.*"
+
+[tool.pixi.feature.py315.dependencies]
+python = "3.15.*"
+
+[tool.pixi.environments]
+py310 = ["py310"]
+py311 = ["py311"]
+py312 = ["py312"]
+py313 = ["py313"]
+py314 = ["py314"]
+py315 = ["py315"]

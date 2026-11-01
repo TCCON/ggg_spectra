@@ -1,38 +1,48 @@
-import os
-import sys
-import subprocess
-import json
 import argparse
-
-import collections
+import json
+import os
+import re
 from collections import OrderedDict
 
-from tornado.ioloop import IOLoop
-import bokeh
-from bokeh.application.handlers import FunctionHandler
+import matplotlib
+import matplotlib.pyplot as plt
+import numpy as np
 from bokeh.application import Application
-from bokeh.server.server import Server
+from bokeh.application.handlers import FunctionHandler
+from bokeh.embed import file_html
 from bokeh.io import curdoc
 from bokeh.io.state import curstate
-from bokeh.plotting import figure
+from bokeh.layouts import Column, gridplot, Row
 from bokeh.models import (
-    ColumnDataSource,
-    CustomJS,
     Button,
+    CheckboxGroup,
+    CrosshairTool,
+    CustomJS,
     Div,
-    TextInput,
-    Select,
+    HoverTool,
     Legend,
     Range1d,
-    CheckboxGroup,
-    HoverTool,
-    CrosshairTool,
+    Select,
+    Span,
+    TextInput,
 )
-from bokeh.layouts import gridplot, widgetbox, Column
+from bokeh.plotting import figure
 from bokeh.resources import CDN
-from bokeh.embed import file_html
+from bokeh.server.server import Server
+from jinja2 import Template
+from tornado.ioloop import IOLoop
 
-import numpy as np
+matplotlib.use("Agg")
+
+SUBSCRIPT_DIGITS = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+
+def pretty_species_name(name):
+    if name.lower() in ["other", "solar"]:
+        return name
+    match = re.fullmatch(r"(\d*)(.*)", name)
+    isotope_prefix, formula = match.groups()
+    return isotope_prefix + formula.upper().translate(SUBSCRIPT_DIGITS)
 
 
 def read_spt(path):
@@ -49,9 +59,7 @@ def read_spt(path):
 
     DATA["header"] = head
 
-    content_T = np.array(
-        [[elem for elem in line.split()] for line in content[3:]], dtype=np.float
-    ).T
+    content_T = np.array([[elem for elem in line.split()] for line in content[3:]], dtype=float).T
 
     DATA["columns"] = {}
     for var in head:
@@ -75,6 +83,88 @@ def read_spt(path):
     DATA["rms_resid"] = rms_resid
 
     return DATA
+
+
+def save_matplotlib_plot(
+    spectrum,
+    header,
+    columns,
+    residuals,
+    rms_resid,
+    sza,
+    zobs,
+    colors,
+    html_path,
+):
+    """Save a Matplotlib version of the spectrum and residual plots."""
+    freq = columns["Freq"]
+    not_gas = 4 if "Cont" in header else 3
+
+    fig, (ax_spec, ax_resid) = plt.subplots(
+        2,
+        1,
+        sharex=True,
+        figsize=(12, 6),
+        gridspec_kw={"height_ratios": [4, 1]},
+    )
+
+    for species_name in header[not_gas:]:
+        ax_spec.plot(
+            freq,
+            columns[species_name],
+            color=colors.get(species_name, "hotpink"),
+            linewidth=2,
+            label=pretty_species_name(species_name),
+        )
+
+    ax_spec.plot(
+        freq,
+        columns["Tm"],
+        color="black",
+        linewidth=2,
+        label="Measured",
+    )
+    ax_spec.plot(
+        freq,
+        columns["Tc"],
+        color="chartreuse",
+        linewidth=2,
+        label="Calculated",
+    )
+
+    ax_spec.set_title(
+        f"{spectrum}; SZA={sza}; zobs={zobs}km; "
+        f"%resid=100*(Measured-Calculated); RMSresid={rms_resid:.4f}%"
+    )
+    ax_spec.set_ylabel("Transmittance")
+    ax_spec.set_ylim(-0.04, 1.04)
+
+    ax_resid.plot(freq, residuals, color="black")
+    ax_resid.axhline(0, color="red")
+    ax_resid.set_xlabel("Wavenumber (cm$^{-1}$)")
+    ax_resid.set_ylabel("% Residuals")
+    ax_resid.set_ylim(-3, 3)
+
+    for ax in (ax_spec, ax_resid):
+        ax.tick_params(labelsize=13)
+        ax.yaxis.label.set_size(14)
+        ax.xaxis.label.set_size(14)
+
+    ax_spec.legend(
+        loc="upper left",
+        bbox_to_anchor=(1.02, 1),
+        frameon=False,
+    )
+
+    fig.subplots_adjust(right=0.80, hspace=0.08)
+
+    png_path = os.path.splitext(html_path)[0] + ".png"
+    try:
+        fig.savefig(png_path, dpi=150, bbox_inches="tight")
+    finally:
+        plt.close(fig)
+
+    print(f"Wrote {png_path}")
 
 
 def save_x_bounds(attr, old, new):
@@ -177,22 +267,11 @@ def add_vlinked_crosshairs(fig1, fig2):
     """
     Make a crosshair to follow the mouse
     """
-    js_move = """if(cb_obj.x >= fig.x_range.start && cb_obj.x <= fig.x_range.end && cb_obj.y >= fig.y_range.start && cb_obj.y <= fig.y_range.end)
-                    { cross.spans.height.computed_location = cb_obj.sx }
-                else 
-                    { cross.spans.height.computed_location = null }"""
-    js_leave = "cross.spans.height.computed_location = null"
-
-    cross1 = CrosshairTool()
-    cross2 = CrosshairTool()
+    cross = Span(dimension="height")
+    cross1 = CrosshairTool(dimensions="height", overlay=cross)
+    cross2 = CrosshairTool(dimensions="height", overlay=cross)
     fig1.add_tools(cross1)
     fig2.add_tools(cross2)
-    args = {"cross": cross2, "fig": fig1}
-    fig1.js_on_event("mousemove", CustomJS(args=args, code=js_move))
-    fig1.js_on_event("mouseleave", CustomJS(args=args, code=js_leave))
-    args = {"cross": cross1, "fig": fig2}
-    fig2.js_on_event("mousemove", CustomJS(args=args, code=js_move))
-    fig2.js_on_event("mouseleave", CustomJS(args=args, code=js_leave))
 
 
 def update_save_input(attr, old, new):
@@ -204,7 +283,11 @@ def update_save_input(attr, old, new):
     spt_data["save_ext"] = new
 
 
-def build_figure(spec_path: str, save_path: str = os.getcwd()):
+def build_figure(
+    spec_path: str,
+    save_path: str = os.getcwd(),
+    sizing_mode: str = "scale_both",
+):
     """
     Make the figure
     """
@@ -265,25 +348,27 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
         + "km; %resid=100*(Measured-Calculated); RMSresid="
         + ("%.4f" % sigma_rms)
         + "%",
-        plot_width=1000,
-        plot_height=400,
+        width=1000,
+        height=400,
         tools=TOOLS,
         y_range=Range1d(-0.04, 1.04),
         outline_line_alpha=0,
         active_inspect="crosshair",
         active_drag="box_zoom",
+        sizing_mode=sizing_mode,
     )
     # residual figure
     fig_resid = figure(
         name="resid_fig",
-        plot_width=1000,
-        plot_height=150,
+        width=1000,
+        height=150,
         x_range=fig.x_range,
         tools=TOOLS,
         y_range=Range1d(-3, 3),
         outline_line_alpha=0,
         active_inspect="crosshair",
         active_drag="box_zoom",
+        sizing_mode=sizing_mode,
     )
 
     # axes labels
@@ -291,7 +376,6 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
     fig_resid.yaxis.axis_label = "% Residuals"
 
     fig.yaxis.axis_label = "Transmittance"
-    # fig.xaxis.axis_label = u'Wavenumber (cm\u207B\u00B9)'
 
     for elem in [fig, fig_resid]:
         elem.yaxis.axis_label_text_font_size = "14pt"
@@ -312,28 +396,35 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
     # plotting species lines
     plots = []
     for j in range(len(species) - not_gas):
-        if header[j + not_gas] not in colors.keys():
+        species_name = header[j + not_gas]
+        display_name = pretty_species_name(species_name)
+        if species_name not in colors.keys():
             colo = "hotpink"
             print(
                 '/!\\ header[j+not_gas] not in the "colors" dictionary, using hotpink by default; update the colors dictionary to use a specific color !'
             )
         else:
-            colo = colors[header[j + not_gas]]
+            colo = colors[species_name]
+
         plots.append(
             fig.line(
-                x=freq, y=species[j + not_gas], color=colo, line_width=2, name=header[j + not_gas]
+                x=freq,
+                y=species[j + not_gas],
+                color=colo,
+                line_width=2,
+                name=display_name,
             )
         )
-        # each line has a associated hovertool with a callback that looks at the checkboxes status for the tool visibility.
+        # each line has a associated hovertool with a callback that
+        # looks at the checkboxes status for the tool visibility.
         fig.add_tools(
             HoverTool(
                 mode="vline",
                 line_policy="prev",
                 renderers=[plots[j]],
-                names=[header[j + not_gas]],
                 tooltips=OrderedDict(
                     [
-                        ("name", header[j + not_gas]),
+                        ("name", display_name),
                         ("index", "$index"),
                         ("(x;y)", "(@x{0.00} ; @y{0.000})"),
                     ]
@@ -348,7 +439,6 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
             mode="vline",
             line_policy="prev",
             renderers=[plots[j + 1]],
-            names=["Tm"],
             tooltips=OrderedDict(
                 [("name", "Measured"), ("index", "$index"), ("(x;y)", "(@x{0.00} ; @y{0.000})")]
             ),
@@ -357,11 +447,13 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
 
     # adding the calculated spectrum
     plots.append(fig.line(x=freq, y=tc, color="chartreuse", line_width=2, name="Tc"))
-    # fig.add_tools( HoverTool(mode='vline',line_policy='prev',renderers=[plots[j+2]],names=['Tc'],tooltips=OrderedDict( [('name','Calculated'),('index','$index'),('(x;y)','(@x{0.00} ; @y{0.000})')] )) )
 
     # legend outside of the figure
     fig_legend = Legend(
-        items=[(header[j + not_gas], [plots[j]]) for j in range(len(species) - not_gas)]
+        items=[
+            (pretty_species_name(header[j + not_gas]), [plots[j]])
+            for j in range(len(species) - not_gas)
+        ]
         + [("Measured", [plots[-2]]), ("Calculated", [plots[-1]])],
         location=(0, 0),
         border_line_alpha=0,
@@ -371,13 +463,13 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
     fig.legend.inactive_fill_alpha = 0.6
 
     # now the residual figure
-    fig_resid.line(x=freq, y=residuals, color="black", name="residuals")
+    resid_plot = fig_resid.line(x=freq, y=residuals, color="black", name="residuals")
     fig_resid.line(x=freq, y=np.zeros(len(freq)), color="red")
     fig_resid.add_tools(
         HoverTool(
             mode="vline",
             line_policy="prev",
-            names=["residuals"],
+            renderers=[resid_plot],
             tooltips={"index": "$index", "(x;y)": "($x{0.00} ; $y{0.000})"},
         )
     )
@@ -396,67 +488,75 @@ def build_figure(spec_path: str, save_path: str = os.getcwd()):
     checkbox_code = "".join(
         ["p" + str(i) + ".visible = checkbox.active.includes(" + str(i) + ");" for i in N_plots]
     )
-    checkbox.callback = CustomJS(
-        args={key: value for key, value in checkbox_iterable}, code=checkbox_code
+    checkbox.js_on_change(
+        "active",
+        CustomJS(args={key: value for key, value in checkbox_iterable}, code=checkbox_code),
     )
 
     # button to uncheck all checkboxes
     clear_button = Button(label="Hide all lines", width=200)
     clear_button_code = """checkbox.active=[];""" + checkbox_code
-    clear_button.callback = CustomJS(
-        args={key: value for key, value in checkbox_iterable}, code=clear_button_code
+    clear_button.js_on_click(
+        CustomJS(args={key: value for key, value in checkbox_iterable}, code=clear_button_code)
     )
 
     # button to check all checkboxes
     check_button = Button(label="Show all lines", width=200)
     check_button_code = """checkbox.active=""" + str(N_plots) + """;""" + checkbox_code
-    check_button.callback = CustomJS(
-        args={key: value for key, value in checkbox_iterable}, code=check_button_code
+    check_button.js_on_click(
+        CustomJS(args={key: value for key, value in checkbox_iterable}, code=check_button_code)
     )
 
     # title div
     div = Div(
         text='<p align="center"><font size=4><b>{}</b></font></p>'.format(ext),
-        width=fig.plot_width - 100,
+        width=200,
     )
 
     add_vlinked_crosshairs(fig, fig_resid)
 
-    sub_grid = gridplot([[fig], [fig_resid], [div]], toolbar_location="left")
-
-    # button to activate/deactivate hover tools
-    hover_button = Button(label="Enable hover tools", button_type="success", width=200)
-    hover_list = [i for i in sub_grid.select({"type": HoverTool})]
-    # in 'comp' mode, each plot has a different hover tool, I hide them and this button will click them all at once.
-    hover_button_code = """
-    if(cb_obj.button_type.includes("success")){
-    cb_obj.button_type = 'warning';
-    cb_obj.label = 'Disable hover tools'
-    } else {
-    cb_obj.button_type = 'success';
-    cb_obj.label= 'Enable hover tools';
-    }
-    """ + "".join(
-        ["hover{}.active = !hover{}.active;".format(i, i) for i in range(len(hover_list))]
-    )
-    hover_button.callback = CustomJS(
-        args={"hover{}".format(i): elem for i, elem in enumerate(hover_list)},
-        code=hover_button_code,
+    sub_grid = gridplot(
+        [[fig], [fig_resid]],
+        toolbar_location="left",
+        sizing_mode=sizing_mode,
     )
 
     # put all the widgets in a box
-    group = widgetbox(clear_button, check_button, hover_button, width=200, name="group")
+    group = Column(clear_button, check_button, div, width=200, name="group")
 
     # the final grid for static plots
-    grid = gridplot([[sub_grid, group]], toolbar_location=None)
+    grid = Row(
+        sub_grid,
+        group,
+        sizing_mode=sizing_mode,
+    )
 
     # save a standalone html document in ggg_spectra/save
     with open(save_file, "w") as outfile:
-        outfile.write(file_html(grid, CDN, spectrum[:12] + spectrum[-3:]))
+        outfile.write(
+            file_html(
+                grid,
+                CDN,
+                spectrum[:12] + spectrum[-3:],
+                _always_new=True,
+            )
+        )
     print(f"Wrote {save_file}")
 
+    save_matplotlib_plot(
+        spectrum=spectrum,
+        header=header,
+        columns=spt_data[spectrum]["columns"],
+        residuals=residuals,
+        rms_resid=sigma_rms,
+        sza=SZA,
+        zobs=zobs,
+        colors=colors,
+        html_path=save_file,
+    )
+
     if not static:
-        return clear_button, check_button, hover_button, sub_grid, fig, fig_resid
+        return clear_button, check_button, sub_grid, fig, fig_resid
 
 
 def doc_maker():
@@ -492,7 +592,7 @@ def doc_maker():
     load_button.on_click(load_spectrum)
 
     if spt_data == {}:
-        curdoc().add_root(widgetbox(path_input, select_spectrum, save_input, load_button))
+        curdoc().add_root(Column(path_input, select_spectrum, save_input, load_button))
         save_input.value = ""
         spt_data["save_ext"] = ""
         if spec_path:
@@ -507,16 +607,14 @@ def doc_maker():
     (
         clear_button,
         check_button,
-        hover_button,
         sub_grid,
         fig,
         fig_resid,
-    ) = build_figure(spec_path, save_path)
+    ) = build_figure(spec_path, save_path, sizing_mode)
 
-    group = widgetbox(
+    group = Column(
         clear_button,
         check_button,
-        hover_button,
         path_input,
         select_spectrum,
         save_input,
@@ -524,7 +622,11 @@ def doc_maker():
         width=200,
     )
 
-    app_grid = gridplot([[sub_grid, group]], toolbar_location=None)
+    app_grid = Row(
+        sub_grid,
+        group,
+        sizing_mode=sizing_mode,
+    )
 
     # Callbacks on axis ranges of figures, do this after the doc was saved as standalone html
     if "fig_x" not in spt_data.keys():
@@ -553,15 +655,30 @@ def doc_maker():
 
 def modify_doc(doc):
     global spt_data
-
     spt_data = {}
 
+    doc.template = Template(
+        """
+    {% extends base %}
+    {% block preamble %}
+    <style>
+      html, body {
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      .bk-root {
+        width: 100vw;
+        height: 100vh;
+      }
+    </style>
+    {% endblock %}
+    """
+    )
+
     curstate().document = doc
-
-    # this is displayed in the browser tab
-    curdoc().title = "TCCON"
-
-    # fill the document
+    doc.title = "TCCON"
     doc_maker()
 
 
@@ -587,7 +704,7 @@ def start_server():
 
 
 def main():
-    global save_path, spec_path
+    global save_path, spec_path, sizing_mode
 
     app_path = os.path.abspath(os.path.dirname(__file__))
     spec_path = os.path.join(app_path, "spectra")
@@ -607,10 +724,26 @@ def main():
         default=os.getcwd(),
         help="full path to the directory where the html plots will be saved, defaults to the current working directory",
     )
+    parser.add_argument(
+        "--sizing-mode",
+        default="scale_both",
+        choices=[
+            "fixed",
+            "scale_width",
+            "scale_height",
+            "scale_both",
+            "stretch_width",
+            "stretch_height",
+            "stretch_both",
+        ],
+        help="Bokeh sizing mode (default: scale_both)",
+    )
+
     args = parser.parse_args()
 
     spec_path = args.indir
     save_path = args.save_path
+    sizing_mode = args.sizing_mode
 
     if not os.path.exists(spec_path):
         # not need to raise an exception since it can still be updated in the input widget
@@ -621,7 +754,7 @@ def main():
     print(f"Each open spectrum will be saved as a standalone html file under {save_path}")
 
     if os.path.isfile(spec_path):
-        build_figure(spec_path, save_path)
+        build_figure(spec_path, save_path, sizing_mode)
     else:
         start_server()
 
