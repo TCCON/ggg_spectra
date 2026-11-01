@@ -4,6 +4,8 @@ import json
 import matplotlib
 import numpy as np
 import pytest
+import subprocess
+import sys
 
 matplotlib.use("Agg")  # Use a non-interactive backend for tests.
 
@@ -73,4 +75,32 @@ def test_save_matplotlib_plot_creates_png(tmp_path, spectrum_path):
     png_path = html_path.with_suffix(".png")
     assert png_path.is_file()
     assert png_path.stat().st_size > 0
+    assert png_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
+
+
+def test_main_creates_html_and_png(tmp_path):
+    spectrum_path = SPECTRUM_FILES[0]
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "ggg_spectra.main",
+            "--indir",
+            str(spectrum_path),
+            "--save-path",
+            str(tmp_path),
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+
+    html_path = tmp_path / f"{spectrum_path.name}.html"
+    png_path = tmp_path / f"{spectrum_path.name}.png"
+
+    assert html_path.is_file()
+    assert png_path.is_file()
+    assert html_path.stat().st_size > 0
     assert png_path.read_bytes().startswith(b"\x89PNG\r\n\x1a\n")
