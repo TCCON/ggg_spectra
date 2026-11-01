@@ -90,3 +90,16 @@ py312 = ["py312"]
 py313 = ["py313"]
 py314 = ["py314"]
 py315 = ["py315"]
+
+[tool.pixi.tasks]
+test = "python -m pytest"
+
+[tool.pixi.tasks.test-all]
+depends-on = [
+    { task = "test", environment = "py310" },
+    { task = "test", environment = "py311" },
+    { task = "test", environment = "py312" },
+    { task = "test", environment = "py313" },
+    { task = "test", environment = "py314" },
+    { task = "test", environment = "py315" },
+]
