@@ -2,6 +2,8 @@
 
 `ggg_spectra` plots spectrum files produced by GGG. It runs in a local webserver. It provides an interactive, browser-based interface for browsing spectra and saves a standalone HTML plot each time you load one. You can also create a static HTML plot directly from a spectrum file without starting the interactive app.
 
+![Screenshot of the ggg_spectra app](docs/images/app-screenshot.png)
+
 ## Requirements
 
 - Python>=3.10
