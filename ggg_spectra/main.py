@@ -233,6 +233,9 @@ def load_spectrum():
 
     cur_path = curdoc().select_one({"name": "path_input"}).value
 
+    auto_save_checkbox = curdoc().select_one({"name": "auto_save"})
+    spt_data["auto_save"] = 0 in auto_save_checkbox.active
+
     # read the spectrum file
     spt_data[spectrum] = read_spt(os.path.join(cur_path, spectrum))
 
@@ -287,6 +290,7 @@ def build_figure(
     spec_path: str,
     save_path: str = os.getcwd(),
     sizing_mode: str = "scale_both",
+    save_files: bool = True,
 ):
     """
     Make the figure
@@ -531,29 +535,31 @@ def build_figure(
         sizing_mode=sizing_mode,
     )
 
-    # save a standalone html document in ggg_spectra/save
-    with open(save_file, "w") as outfile:
-        outfile.write(
-            file_html(
-                grid,
-                CDN,
-                spectrum[:12] + spectrum[-3:],
-                _always_new=True,
+    if save_files:
+        # save a standalone html document in ggg_spectra/save
+        with open(save_file, "w") as outfile:
+            outfile.write(
+                file_html(
+                    grid,
+                    CDN,
+                    spectrum[:12] + spectrum[-3:],
+                    _always_new=True,
+                )
             )
-        )
-    print(f"Wrote {save_file}")
+        print(f"Wrote {save_file}")
 
-    save_matplotlib_plot(
-        spectrum=spectrum,
-        header=header,
-        columns=spt_data[spectrum]["columns"],
-        residuals=residuals,
-        rms_resid=sigma_rms,
-        sza=SZA,
-        zobs=zobs,
-        colors=colors,
-        html_path=save_file,
-    )
+        # also save a png
+        save_matplotlib_plot(
+            spectrum=spectrum,
+            header=header,
+            columns=spt_data[spectrum]["columns"],
+            residuals=residuals,
+            rms_resid=sigma_rms,
+            sza=SZA,
+            zobs=zobs,
+            colors=colors,
+            html_path=save_file,
+        )
 
     if not static:
         return clear_button, check_button, sub_grid, fig, fig_resid
@@ -591,8 +597,24 @@ def doc_maker():
     load_button = Button(label="Load spectrum", width=200, css_classes=["custom_button"])
     load_button.on_click(load_spectrum)
 
+    # checkbox to toggle saving static html and png files ON/OFF
+    auto_save_checkbox = CheckboxGroup(
+        labels=["Auto-save plots (HTML and PNG)"],
+        active=[0] if spt_data.get("auto_save", True) else [],
+        name="auto_save",
+        width=200,
+    )
+
     if spt_data == {}:
-        curdoc().add_root(Column(path_input, select_spectrum, save_input, load_button))
+        curdoc().add_root(
+            Column(
+                path_input,
+                select_spectrum,
+                save_input,
+                load_button,
+                auto_save_checkbox,
+            )
+        )
         save_input.value = ""
         spt_data["save_ext"] = ""
         if spec_path:
@@ -610,7 +632,12 @@ def doc_maker():
         sub_grid,
         fig,
         fig_resid,
-    ) = build_figure(spec_path, save_path, sizing_mode)
+    ) = build_figure(
+        spec_path,
+        save_path,
+        sizing_mode,
+        save_files=spt_data.get("auto_save", True),
+    )
 
     group = Column(
         clear_button,
@@ -619,6 +646,7 @@ def doc_maker():
         select_spectrum,
         save_input,
         load_button,
+        auto_save_checkbox,
         width=200,
     )
 
